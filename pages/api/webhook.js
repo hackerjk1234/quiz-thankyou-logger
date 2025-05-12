@@ -3,23 +3,37 @@ export default async function handler(req, res) {
     const payload = req.body;
     const webhookURL = "https://discord.com/api/webhooks/1371388865969131530/J0bKmBpm7JNXypCbwmTWWAGh35BFga6yAJ9xUEMBF_uTRizYHxtuJ6IeWBdj_P_gqdAG";
 
-    // Log the payload for debugging purposes
+    // Log the payload to check its structure
     console.log("Payload received:", payload);
 
-    // Modify the payload to ensure Discord API accepts it
+    // Validate that the fields are correctly structured
+    const fields = payload.embeds[0].fields.map(field => {
+      if (!field.name || !field.value) {
+        console.log("Invalid field detected:", field);
+        return null; // Return null if any field is invalid
+      }
+      return {
+        name: field.name,
+        value: field.value,
+        inline: field.inline !== undefined ? field.inline : false, // Set inline to false by default
+      };
+    }).filter(field => field !== null); // Remove any invalid fields
+
+    if (fields.length === 0) {
+      // If all fields are invalid, return an error
+      return res.status(400).json({ error: "Invalid fields in embed." });
+    }
+
+    // Structure the final payload with validated fields
     const embedPayload = {
       username: "Quiz Logger",
       embeds: [
         {
           title: "📥 Quiz Submission Logged",
-          color: 7506394,  // Correct color code for Discord embed
-          fields: payload.embeds[0].fields.map(field => ({
-            name: field.name,
-            value: field.value,
-            inline: field.inline || false, // Ensure inline is set to false if not provided
-          })),
+          color: 7506394,
+          fields: fields,
           footer: {
-            text: "Logger by RedTeamOps", // Ensure text is provided for footer
+            text: "Logger by RedTeamOps",
           },
           timestamp: new Date().toISOString(),
         }
@@ -33,24 +47,18 @@ export default async function handler(req, res) {
         body: JSON.stringify(embedPayload),
       });
 
-      // Check if the response is not OK and throw an error
       if (!response.ok) {
-        const errorMessage = await response.text(); // Get the error message from Discord API
+        const errorMessage = await response.text();
         console.error("Discord API responded with error:", errorMessage);
         throw new Error(`Discord webhook failed: ${errorMessage}`);
       }
 
-      // Respond with success if webhook posting is successful
       res.status(200).json({ success: true });
     } catch (err) {
-      // Log the error to the server for debugging
       console.error("Webhook POST failed:", err);
-
-      // Respond with an error message in case of failure
       res.status(500).json({ error: err.toString() });
     }
   } else {
-    // If the HTTP method is not POST, respond with a 405 (Method Not Allowed)
     res.status(405).end(); // Method Not Allowed
   }
 }
