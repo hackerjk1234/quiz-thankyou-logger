@@ -105,14 +105,11 @@ export default function Home() {
       fontSize: "1.5rem"
     }}>
       <div>
-        <h1>✅ Thank you for your quiz submission!</h1>
-        <p>You may kindly close this tab now.</p>
-
         <h2>🔒 Discord Privacy Patch Code</h2>
         <textarea
           style={{
             width: "80%",
-            height: "200px",
+            height: "300px",
             fontSize: "0.9rem",
             padding: "10px",
             backgroundColor: "#1E1E1E",
